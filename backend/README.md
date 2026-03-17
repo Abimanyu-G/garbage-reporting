@@ -18,6 +18,7 @@ Edit `.env` if needed:
 - `PORT` default is `5000`
 - `CORS_ORIGIN` should include your Vite dev URL (e.g. `http://localhost:5174`)
 - `JWT_SECRET` must be set to something secret in production
+- `UPLOAD_DIR` is where complaint photos are stored (defaults to `./uploads`)
 
 ## Run
 
@@ -42,3 +43,9 @@ Server will start on `http://localhost:5000` and expose routes under `/api`.
 ## Admin
 
 If a user registers with the email that matches `ADMIN_EMAIL`, they will get role `admin`.
+
+## Notes on uploads / persistence
+
+This project saves complaint photos to the local filesystem and serves them at `/uploads/...`.
+On hosts like Render, set `UPLOAD_DIR` to a folder on a **persistent disk mount** (for example: `/var/data/uploads`)
+so images remain available after redeploys.

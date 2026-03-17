@@ -1,8 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import multer from 'multer';
+import { env } from '../utils/env.js';
 
-const uploadsDir = path.resolve(process.cwd(), 'uploads');
+const uploadsDir = path.resolve(process.cwd(), env.uploadDir);
 fs.mkdirSync(uploadsDir, { recursive: true });
 
 const storage = multer.diskStorage({

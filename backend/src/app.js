@@ -35,7 +35,7 @@ export function createApp({ db }) {
 
   app.get('/health', (req, res) => res.json({ ok: true }));
 
-  app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+  app.use('/uploads', express.static(path.resolve(process.cwd(), env.uploadDir)));
 
   app.use('/api/auth', createAuthRouter({ db }));
   app.use('/api/complaints', createComplaintsRouter({ db }));
