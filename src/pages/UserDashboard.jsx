@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, AlertCircle, CheckCircle, FileText } from 'lucide-react';
 import ComplaintCard from '../components/ComplaintCard';
 import Loading from '../components/Loading';
+import LocationInput from '../components/LocationInput';
 import { complaintAPI } from '../services/api';
 import { getUser } from '../utils/auth';
 
@@ -160,13 +161,10 @@ function UserDashboard() {
                 <label className="block text-sm font-medium text-slate-700 mb-2">
                   Location
                 </label>
-                <input
-                  type="text"
+                <LocationInput
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
-                  className="app-input"
-                  placeholder="Enter the location..."
                   required
                 />
               </div>
