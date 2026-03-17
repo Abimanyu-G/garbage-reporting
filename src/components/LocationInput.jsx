@@ -1,40 +1,39 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MapPin, Navigation } from 'lucide-react';
 
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
-function loadGoogleMapsPlaces(apiKey) {
-  if (!apiKey) return Promise.resolve(false);
-  if (window.google?.maps?.places) return Promise.resolve(true);
-  if (window.__gmapsPlacesLoading) return window.__gmapsPlacesLoading;
-
-  window.__gmapsPlacesLoading = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    const params = new URLSearchParams({
-      key: apiKey,
-      libraries: 'places',
-    });
-    script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => reject(new Error('Failed to load Google Maps'));
-    document.head.appendChild(script);
+async function nominatimSearch(query, { signal } = {}) {
+  const params = new URLSearchParams({
+    format: 'jsonv2',
+    q: query,
+    addressdetails: '1',
+    limit: '5',
   });
-
-  return window.__gmapsPlacesLoading;
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    method: 'GET',
+    signal,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error('Search failed');
+  return res.json();
 }
 
-async function reverseGeocode(apiKey, lat, lng) {
-  if (!apiKey) return null;
+async function nominatimReverse(lat, lng, { signal } = {}) {
   const params = new URLSearchParams({
-    latlng: `${lat},${lng}`,
-    key: apiKey,
+    format: 'jsonv2',
+    lat: String(lat),
+    lon: String(lng),
   });
-  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
-  const data = await res.json();
-  const first = data?.results?.[0];
-  return first?.formatted_address ?? null;
+  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, {
+    method: 'GET',
+    signal,
+    headers: {
+      Accept: 'application/json',
+    },
+  });
+  if (!res.ok) throw new Error('Reverse geocode failed');
+  return res.json();
 }
 
 export default function LocationInput({
@@ -45,55 +44,41 @@ export default function LocationInput({
   name = 'location',
 }) {
   const inputRef = useRef(null);
-  const autoRef = useRef(null);
-  const [mapsReady, setMapsReady] = useState(false);
   const [locating, setLocating] = useState(false);
   const [hint, setHint] = useState('');
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState([]);
 
-  const hasApiKey = Boolean(GOOGLE_MAPS_API_KEY);
   const mapsLink = useMemo(() => {
     const q = (value ?? '').trim();
     if (!q) return null;
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    return `https://www.openstreetmap.org/search?query=${encodeURIComponent(q)}`;
   }, [value]);
 
   useEffect(() => {
-    let cancelled = false;
+    const q = (value ?? '').trim();
+    if (!open) return;
+    if (q.length < 3) {
+      setResults([]);
+      setLoading(false);
+      return;
+    }
 
-    loadGoogleMapsPlaces(GOOGLE_MAPS_API_KEY)
-      .then((ok) => {
-        if (cancelled) return;
-        setMapsReady(Boolean(ok));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setMapsReady(false);
-      });
+    const controller = new AbortController();
+    setLoading(true);
+    const t = setTimeout(() => {
+      nominatimSearch(q, { signal: controller.signal })
+        .then((data) => setResults(Array.isArray(data) ? data : []))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 350);
 
     return () => {
-      cancelled = true;
+      controller.abort();
+      clearTimeout(t);
     };
-  }, []);
-
-  useEffect(() => {
-    if (!mapsReady) return;
-    if (!inputRef.current) return;
-    if (autoRef.current) return;
-
-    const ac = new window.google.maps.places.Autocomplete(inputRef.current, {
-      fields: ['formatted_address', 'name'],
-      types: ['geocode', 'establishment'],
-    });
-    ac.addListener('place_changed', () => {
-      const place = ac.getPlace();
-      const formatted = place?.formatted_address || place?.name;
-      if (formatted) {
-        onChange({ target: { name, value: formatted } });
-        setHint('');
-      }
-    });
-    autoRef.current = ac;
-  }, [mapsReady, onChange, name]);
+  }, [value, open]);
 
   const handleUseMyLocation = async () => {
     setHint('');
@@ -115,19 +100,30 @@ export default function LocationInput({
       const lat = pos.coords.latitude;
       const lng = pos.coords.longitude;
 
-      // If API key exists, try to convert coords to a readable address. Otherwise, store coords.
-      const address = await reverseGeocode(GOOGLE_MAPS_API_KEY, lat, lng);
+      const controller = new AbortController();
+      const data = await nominatimReverse(lat, lng, { signal: controller.signal });
+      const address = data?.display_name ?? null;
       onChange({
         target: {
           name,
           value: address ?? `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
         },
       });
+      setOpen(false);
     } catch (e) {
       setHint('Could not fetch your location. Please allow location permission and try again.');
     } finally {
       setLocating(false);
     }
+  };
+
+  const handlePick = (item) => {
+    const label = item?.display_name;
+    if (!label) return;
+    onChange({ target: { name, value: label } });
+    setHint('');
+    setOpen(false);
+    setResults([]);
   };
 
   return (
@@ -140,6 +136,8 @@ export default function LocationInput({
           name={name}
           value={value}
           onChange={onChange}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
           className="app-input pl-10 pr-36"
           placeholder={placeholder}
           required={required}
@@ -158,16 +156,45 @@ export default function LocationInput({
             <span className="hidden sm:inline">{locating ? 'Locating…' : 'Use my location'}</span>
           </button>
         </div>
+
+        {open && (loading || results.length > 0) && (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 app-card overflow-hidden">
+            <div className="max-h-60 overflow-auto p-2">
+              {loading && (
+                <div className="px-3 py-2 text-sm text-slate-600">Searching…</div>
+              )}
+              {!loading && results.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-slate-600">
+                  No results. Try a more specific query.
+                </div>
+              ) : (
+                <ul className="space-y-1">
+                  {results.map((r) => (
+                    <li key={`${r.place_id}`}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handlePick(r)}
+                        className="w-full rounded-xl px-3 py-2 text-left text-sm text-slate-800 hover:bg-slate-100"
+                      >
+                        <div className="font-medium line-clamp-2">{r.display_name}</div>
+                        {r.type && (
+                          <div className="mt-0.5 text-xs text-slate-500">
+                            {String(r.type).replaceAll('_', ' ')}
+                          </div>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        <span>
-          {hasApiKey && mapsReady
-            ? 'Google suggestions enabled.'
-            : hasApiKey
-              ? 'Loading Google suggestions…'
-              : 'Tip: add VITE_GOOGLE_MAPS_API_KEY to enable Google place search.'}
-        </span>
+        <span>Search powered by OpenStreetMap (Nominatim).</span>
         {mapsLink && (
           <a
             href={mapsLink}
@@ -175,7 +202,7 @@ export default function LocationInput({
             rel="noreferrer"
             className="text-emerald-700 hover:text-emerald-800 font-semibold"
           >
-            Open in Google Maps
+            Open in OpenStreetMap
           </a>
         )}
       </div>
