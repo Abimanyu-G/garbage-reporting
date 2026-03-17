@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+
+  ::selection {
+    @apply bg-emerald-200 text-slate-900;
+  }
+}
+
+@layer components {
+  .app-container {
+    @apply container mx-auto max-w-6xl px-4;
+  }
+
+  .app-surface {
+    @apply bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70;
+  }
+
+  .app-card {
+    @apply rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-900/5;
+  }
+
+  .app-card-hover {
+    @apply transition hover:-translate-y-0.5 hover:shadow-md hover:shadow-slate-900/10;
+  }
+
+  .app-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 shadow-sm shadow-slate-900/5 outline-none transition;
+    @apply placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100;
+  }
+
+  .app-textarea {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-slate-900 shadow-sm shadow-slate-900/5 outline-none transition;
+    @apply placeholder:text-slate-400 focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100;
+  }
+
+  .app-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition;
+    @apply focus:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .app-btn-primary {
+    @apply app-btn bg-emerald-600 text-white shadow-sm shadow-emerald-900/10 hover:bg-emerald-700;
+  }
+
+  .app-btn-ghost {
+    @apply app-btn bg-white/0 text-slate-700 hover:bg-slate-100;
+  }
+
+  .app-pill {
+    @apply inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold;
+  }
+}
+
+@layer utilities {
+  .animate-fadeIn {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
